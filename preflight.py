@@ -191,6 +191,9 @@ def check(atlas: Path) -> None:
             bad_loops.append(f"L{base}..L{base+length-1} with {nlayers} layers")
     report(not bad_loops, "dynamic id loops stay inside the layer count", "; ".join(bad_loops))
 
+    ok_js, js_detail = script_syntax_ok(text)
+    report(ok_js, "the page's script parses (node --check)", js_detail)
+
     # 5: identifiers the rewritten panels use must be defined somewhere
     # Constants the engine interpolates (${...}) must exist in the data half.
     # This targets the real failure mode — a panel referencing NV_DELTA / KV_FULL_PER_TOKEN that
@@ -277,6 +280,34 @@ def check(atlas: Path) -> None:
             palette_problems.append(f"{name} read but undefined: {miss_keys}")
     report(not palette_problems, "palette keys the engine reads are defined",
            "; ".join(palette_problems))
+
+
+def script_syntax_ok(page_text: str) -> tuple[bool, str]:
+    """Parse the page's inline script with node, if node exists.
+
+    A page can pass every structural check and still be dead in the browser: one stray backslash
+    inside a panel template ('\\'') is a SyntaxError, the module never evaluates, and the 3D view
+    stays empty with no console error from the app itself. Only a real parser catches that.
+    """
+    import shutil
+    import subprocess
+    import tempfile
+    node = shutil.which("node")
+    if not node:
+        return True, "node not installed"
+    scripts = re.findall(r"<script[^>]*>(.*?)</script>", page_text, re.S)
+    if not scripts:
+        return True, "no inline script"
+    body = max(scripts, key=len)
+    with tempfile.TemporaryDirectory() as td:
+        f = Path(td) / "page.js"
+        f.write_text(body, encoding="utf-8")
+        r = subprocess.run([node, "--check", str(f)], capture_output=True, text=True)
+    if r.returncode == 0:
+        return True, ""
+    detail = (r.stderr or r.stdout).strip().splitlines()
+    return False, (detail[0] if detail else "node --check failed") + "  ::  " + (detail[4] if len(detail) > 4 else "")
+
 
 
 SELFTEST_PAGE = """<!doctype html><html><head></head><body><div id="root"></div>
