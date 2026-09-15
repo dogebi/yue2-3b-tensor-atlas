@@ -1,0 +1,4 @@
+.netlify/
+__pycache__/
+*.pyc
+data.js
