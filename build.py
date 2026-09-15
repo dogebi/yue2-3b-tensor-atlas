@@ -576,6 +576,10 @@ def main() -> int:
                 return 7
     OUT.write_text(text, encoding="utf-8")
     print(f"wrote {OUT.name} · {len(text):,} B")
+
+    # the NTT internal badge + copyright footer are part of the published page
+    import badge
+    print("badge ·", badge.inject(OUT))
     return 0
 
 
