@@ -535,6 +535,21 @@ def main() -> int:
     lit = [(a, b) for a, b in LITERAL_SUBS if a in text]
     print(f"code   · {n_re} regex substitutions, {len(lit)} literal subs "
           f"({len(LITERAL_SUBS) - len(lit)} superseded)")
+    # WebMCP tools: webmcp-tools.js 를 자리표시자에 인라인 주입(외부 스크립트 미사용 → CSP 원문 유지)
+    _wm = DIR / "webmcp-tools.js"
+    if "@@WEBMCP@@" in text:
+        if not _wm.exists():
+            print("RESIDUE FAIL: webmcp-tools.js missing", file=sys.stderr)
+            return 9
+        _code = _wm.read_text(encoding="utf-8").rstrip() + "\n"
+        if "</script" in _code.lower():
+            print("RESIDUE FAIL: webmcp-tools.js contains </script", file=sys.stderr)
+            return 9
+        text = text.replace("@@WEBMCP@@", _code)
+        if "@@WEBMCP@@" in text:
+            print("RESIDUE FAIL: WebMCP placeholder not fully replaced", file=sys.stderr)
+            return 9
+        print(f"webmcp · inlined {len(_code):,} B of tools")
     text, rep2 = objectcode.apply_literals(text, lit)
 
     must_have = ["YuE2-3B", "nar_self_attn", "Mixture of Transformers", "184,704", "FP8", "NVFP4",
